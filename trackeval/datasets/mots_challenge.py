@@ -71,7 +71,7 @@ class MOTSChallenge(_BaseDataset):
             raise TrackEvalException('Attempted to evaluate an invalid class. Only pedestrian class is valid.')
         self.class_name_to_class_id = {'pedestrian': 1, 'people': 2, 'bicycle': 3, 'car': 4, 'van': 5,
                                        'truck': 6, 'tricycle': 7, 'awning-tricycle': 8, 'bus': 9,
-                                       'motor': 10, 'others': 11'}
+                                       'motor': 10, 'others': 11}
 
         # Get sequences to eval and check gt files exist
         self.seq_list, self.seq_lengths = self._get_seq_info()
