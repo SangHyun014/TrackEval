@@ -68,14 +68,12 @@ class MotChallenge2DBox(_BaseDataset):
         self.output_sub_fol = self.config['OUTPUT_SUB_FOLDER']
 
         # Get classes to eval
-        self.valid_classes = ['pedestrian','car','van','truck','bus']
+        self.valid_classes = ['pedestrian','car','van','truck','bus', 'ignored_resions']
         self.class_list = [cls.lower() if cls.lower() in self.valid_classes else None
                            for cls in self.config['CLASSES_TO_EVAL']]
         if not all(self.class_list):
             raise TrackEvalException('Attempted to evaluate an invalid class. Only pedestrian class is valid.')
-        self.class_name_to_class_id = {'pedestrian': 1, 'people': 2, 'bicycle': 3, 'car': 4, 'van': 5,
-                                       'truck': 6, 'tricycle': 7, 'awning-tricycle': 8, 'bus': 9,
-                                       'motor': 10, 'others': 11}
+        self.class_name_to_class_id = {'pedestrian': 1, 'car': 4, 'van': 5,'truck': 6,'bus': 9,'ignored_resions': 0}
         self.valid_class_numbers = list(self.class_name_to_class_id.values())
 
         # Get sequences to eval and check gt files exist
@@ -163,12 +161,17 @@ class MotChallenge2DBox(_BaseDataset):
                         continue
                     seq = row[0]
                     seq_list.append(seq)
-                    ini_file = os.path.join(self.gt_fol, seq, 'seqinfo.ini')
-                    if not os.path.isfile(ini_file):
-                        raise TrackEvalException('ini file does not exist: ' + seq + '/' + os.path.basename(ini_file))
-                    ini_data = configparser.ConfigParser()
-                    ini_data.read(ini_file)
-                    seq_lengths[seq] = int(ini_data['Sequence']['seqLength'])
+                    anno_cur = f'data/VisDrone/VisDrone2019-MOT-test-dev/sequences'
+                    imgs_file = os.path.join(anno_cur, seq)
+                    imgs = os.listdir(imgs_file)
+                    seq_lengths[seq] = int(len(imgs))
+
+                    #ini_file = os.path.join(self.gt_fol, seq, 'seqinfo.ini')
+                    #if not os.path.isfile(ini_file):
+                    #    raise TrackEvalException('ini file does not exist: ' + seq + '/' + os.path.basename(ini_file))
+                    #ini_data = configparser.ConfigParser()
+                    #ini_data.read(ini_file)
+                    #seq_lengths[seq] = int(ini_data['Sequence']['seqLength'])
         return seq_list, seq_lengths
 
     def _load_raw_file(self, tracker, seq, is_gt):
@@ -248,6 +251,9 @@ class MotChallenge2DBox(_BaseDataset):
                         raise TrackEvalException(err)
                 if time_data.shape[1] >= 8:
                     raw_data['classes'][t] = np.atleast_1d(time_data[:, 7]).astype(int)
+                    for i, data in enumerate(raw_data['classes'][t]):
+                        if int(raw_data['classes'][t][i]) > 0:
+                            raw_data['classes'][t][i] = int(1)
                 else:
                     if not is_gt:
                         raw_data['classes'][t] = np.ones_like(raw_data['ids'][t])
@@ -322,10 +328,12 @@ class MotChallenge2DBox(_BaseDataset):
         # Check that input data has unique ids
         self._check_unique_ids(raw_data)
 
-        distractor_class_names = ['people', 'bicycle', 'tricycle', 'awning-tricycle', 'motor', 'others']
-        if self.benchmark == 'MOT20':
-            distractor_class_names.append('non_mot_vehicle')
-        distractor_classes = [self.class_name_to_class_id[x] for x in distractor_class_names]
+        isdistractor = True
+        if isdistractor:
+            #distractor_class_names = ['ignored_resions', 'people', 'bicycle', 'car', 'van','truck', 'tricycle', 'awning_tricycle', 'bus',
+            #                      'motor', 'others']
+            distractor_class_names = ['ignored_resions']
+            distractor_classes = [self.class_name_to_class_id[x] for x in distractor_class_names]
         cls_id = self.class_name_to_class_id[cls]
 
         data_keys = ['gt_ids', 'tracker_ids', 'gt_dets', 'tracker_dets', 'tracker_confidences', 'similarity_scores']
@@ -362,6 +370,9 @@ class MotChallenge2DBox(_BaseDataset):
                 # Check all classes are valid:
                 invalid_classes = np.setdiff1d(np.unique(gt_classes), self.valid_class_numbers)
                 if len(invalid_classes) > 0:
+                    print(gt_classes)
+                    print(invalid_classes)
+                    print(self.valid_class_numbers)
                     print(' '.join([str(x) for x in invalid_classes]))
                     raise(TrackEvalException('Attempting to evaluate using invalid gt classes. '
                                              'This warning only triggers if preprocessing is performed, '
@@ -377,8 +388,9 @@ class MotChallenge2DBox(_BaseDataset):
                 match_rows = match_rows[actually_matched_mask]
                 match_cols = match_cols[actually_matched_mask]
 
-                is_distractor_class = np.isin(gt_classes[match_rows], distractor_classes)
-                to_remove_tracker = match_cols[is_distractor_class]
+                if isdistractor:
+                    is_distractor_class = np.isin(gt_classes[match_rows], distractor_classes)
+                    to_remove_tracker = match_cols[is_distractor_class]
 
             # Apply preprocessing to remove all unwanted tracker dets.
             data['tracker_ids'][t] = np.delete(tracker_ids, to_remove_tracker, axis=0)
