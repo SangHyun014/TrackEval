@@ -161,7 +161,7 @@ class MotChallenge2DBox(_BaseDataset):
                         continue
                     seq = row[0]
                     seq_list.append(seq)
-                    anno_cur = f'data/VisDrone/VisDrone2019-MOT-test-dev'
+                    anno_cur = f'data/visdrone/VisDrone2019-MOT-test-dev'
                     imgs_file = os.path.join(anno_cur, seq)
                     imgs = os.listdir(imgs_file)
                     seq_lengths[seq] = int(len(imgs))
