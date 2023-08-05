@@ -77,7 +77,7 @@ class MotChallenge2DBox(_BaseDataset):
         self.valid_class_numbers = list(self.class_name_to_class_id.values())
 
         # Get sequences to eval and check gt files exist
-        self.seq_list, self.seq_lengths = self._get_seq_info()
+        self.seq_list, self.seq_lengths = self._get_visdrone_sequnece_info()
         if len(self.seq_list) < 1:
             raise TrackEvalException('No sequences are selected to be evaluated.')
 
@@ -122,10 +122,59 @@ class MotChallenge2DBox(_BaseDataset):
                         raise TrackEvalException(
                             'Tracker file not found: ' + tracker + '/' + self.tracker_sub_fol + '/' + os.path.basename(
                                 curr_file))
-
+    
     def get_display_name(self, tracker):
         return self.tracker_to_disp[tracker]
 
+    def _get_visdrone_sequnece_info(self):
+        seq_list = []
+        seq_lengths = {}
+        if self.config["SEQ_INFO"]:
+            seq_list = list(self.config["SEQ_INFO"].keys())
+            seq_lengths = self.config["SEQ_INFO"]
+
+            # If sequence length is 'None' tries to read sequence length from .ini files.
+            for seq, seq_length in seq_lengths.items():
+                if seq_length is None:
+                    ini_file = os.path.join(self.gt_fol, seq, 'seqinfo.ini')
+                    if not os.path.isfile(ini_file):
+                        raise TrackEvalException('ini file does not exist: ' + seq + '/' + os.path.basename(ini_file))
+                    ini_data = configparser.ConfigParser()
+                    ini_data.read(ini_file)
+                    seq_lengths[seq] = int(ini_data['Sequence']['seqLength'])
+
+        else:
+            if self.config["SEQMAP_FILE"]:
+                seqmap_file = self.config["SEQMAP_FILE"]
+            else:
+                if self.config["SEQMAP_FOLDER"] is None:
+                    seqmap_file = os.path.join(self.config['GT_FOLDER'], 'seqmaps', self.gt_set + '.txt')
+                else:
+                    seqmap_file = os.path.join(self.config["SEQMAP_FOLDER"], self.gt_set + '.txt')
+            if not os.path.isfile(seqmap_file):
+                print('no seqmap found: ' + seqmap_file)
+                raise TrackEvalException('no seqmap found: ' + os.path.basename(seqmap_file))
+            with open(seqmap_file) as fp:
+                reader = csv.reader(fp)
+                for i, row in enumerate(reader):
+                    if i == 0 or row[0] == '':
+                        continue
+                    seq = row[0]
+                    seq_list.append(seq)
+                    anno_cur = f'data/VisDrone/VisDrone2019-MOT-test-dev/sequences'
+                    imgs_file = os.path.join(anno_cur, seq)
+                    imgs = os.listdir(imgs_file)
+                    seq_lengths[seq] = int(len(imgs))
+
+                    #ini_file = os.path.join(self.gt_fol, seq, 'seqinfo.ini')
+                    #if not os.path.isfile(ini_file):
+                    #    raise TrackEvalException('ini file does not exist: ' + seq + '/' + os.path.basename(ini_file))
+                    #ini_data = configparser.ConfigParser()
+                    #ini_data.read(ini_file)
+                    #seq_lengths[seq] = int(ini_data['Sequence']['seqLength'])
+        return seq_list, seq_lengths
+
+    
     def _get_seq_info(self):
         seq_list = []
         seq_lengths = {}
