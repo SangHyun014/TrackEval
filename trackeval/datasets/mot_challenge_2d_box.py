@@ -21,7 +21,7 @@ class MotChallenge2DBox(_BaseDataset):
             'TRACKERS_FOLDER': os.path.join(code_path, 'data/trackers/mot_challenge/'),  # Trackers location
             'OUTPUT_FOLDER': None,  # Where to save eval results (if None, same as TRACKERS_FOLDER)
             'TRACKERS_TO_EVAL': None,  # Filenames of trackers to eval (if None, all in folder)
-            'CLASSES_TO_EVAL': ['pedestrian','car','van','truck','bus'],  # Valid: ['pedestrian']
+            'CLASSES_TO_EVAL': ['pedestrian', 'car', 'van', 'truck', 'bus'],  # Valid: ['pedestrian']
             'BENCHMARK': 'MOT17',  # Valid: 'MOT17', 'MOT16', 'MOT20', 'MOT15'
             'SPLIT_TO_EVAL': 'train',  # Valid: 'train', 'test', 'all'
             'INPUT_AS_ZIP': False,  # Whether tracker input files are zipped
@@ -68,7 +68,7 @@ class MotChallenge2DBox(_BaseDataset):
         self.output_sub_fol = self.config['OUTPUT_SUB_FOLDER']
 
         # Get classes to eval
-        self.valid_classes = ['pedestrian','car','van','truck','bus', 'ignored_resions']
+        self.valid_classes = ['pedestrian', 'car', 'van', 'truck','bus']
         self.class_list = [cls.lower() if cls.lower() in self.valid_classes else None
                            for cls in self.config['CLASSES_TO_EVAL']]
         if not all(self.class_list):
@@ -77,7 +77,7 @@ class MotChallenge2DBox(_BaseDataset):
         self.valid_class_numbers = list(self.class_name_to_class_id.values())
 
         # Get sequences to eval and check gt files exist
-        self.seq_list, self.seq_lengths = self._get_visdrone_sequnece_info()
+        self.seq_list, self.seq_lengths = self._get_seq_info()
         if len(self.seq_list) < 1:
             raise TrackEvalException('No sequences are selected to be evaluated.')
 
@@ -122,59 +122,10 @@ class MotChallenge2DBox(_BaseDataset):
                         raise TrackEvalException(
                             'Tracker file not found: ' + tracker + '/' + self.tracker_sub_fol + '/' + os.path.basename(
                                 curr_file))
-    
+
     def get_display_name(self, tracker):
         return self.tracker_to_disp[tracker]
 
-    def _get_visdrone_sequnece_info(self):
-        seq_list = []
-        seq_lengths = {}
-        if self.config["SEQ_INFO"]:
-            seq_list = list(self.config["SEQ_INFO"].keys())
-            seq_lengths = self.config["SEQ_INFO"]
-
-            # If sequence length is 'None' tries to read sequence length from .ini files.
-            for seq, seq_length in seq_lengths.items():
-                if seq_length is None:
-                    ini_file = os.path.join(self.gt_fol, seq, 'seqinfo.ini')
-                    if not os.path.isfile(ini_file):
-                        raise TrackEvalException('ini file does not exist: ' + seq + '/' + os.path.basename(ini_file))
-                    ini_data = configparser.ConfigParser()
-                    ini_data.read(ini_file)
-                    seq_lengths[seq] = int(ini_data['Sequence']['seqLength'])
-
-        else:
-            if self.config["SEQMAP_FILE"]:
-                seqmap_file = self.config["SEQMAP_FILE"]
-            else:
-                if self.config["SEQMAP_FOLDER"] is None:
-                    seqmap_file = os.path.join(self.config['GT_FOLDER'], 'seqmaps', self.gt_set + '.txt')
-                else:
-                    seqmap_file = os.path.join(self.config["SEQMAP_FOLDER"], self.gt_set + '.txt')
-            if not os.path.isfile(seqmap_file):
-                print('no seqmap found: ' + seqmap_file)
-                raise TrackEvalException('no seqmap found: ' + os.path.basename(seqmap_file))
-            with open(seqmap_file) as fp:
-                reader = csv.reader(fp)
-                for i, row in enumerate(reader):
-                    if i == 0 or row[0] == '':
-                        continue
-                    seq = row[0]
-                    seq_list.append(seq)
-                    anno_cur = f'data/visdrone/VisDrone2019-MOT-test-dev'
-                    imgs_file = os.path.join(anno_cur, seq)
-                    imgs = os.listdir(imgs_file)
-                    seq_lengths[seq] = int(len(imgs))
-
-                    #ini_file = os.path.join(self.gt_fol, seq, 'seqinfo.ini')
-                    #if not os.path.isfile(ini_file):
-                    #    raise TrackEvalException('ini file does not exist: ' + seq + '/' + os.path.basename(ini_file))
-                    #ini_data = configparser.ConfigParser()
-                    #ini_data.read(ini_file)
-                    #seq_lengths[seq] = int(ini_data['Sequence']['seqLength'])
-        return seq_list, seq_lengths
-
-    
     def _get_seq_info(self):
         seq_list = []
         seq_lengths = {}
@@ -210,17 +161,12 @@ class MotChallenge2DBox(_BaseDataset):
                         continue
                     seq = row[0]
                     seq_list.append(seq)
-                    anno_cur = f'data/visdrone/VisDrone2019-MOT-test-dev/sequences'
-                    imgs_file = os.path.join(anno_cur, seq)
-                    imgs = os.listdir(imgs_file)
-                    seq_lengths[seq] = int(len(imgs))
-
-                    #ini_file = os.path.join(self.gt_fol, seq, 'seqinfo.ini')
-                    #if not os.path.isfile(ini_file):
-                    #    raise TrackEvalException('ini file does not exist: ' + seq + '/' + os.path.basename(ini_file))
-                    #ini_data = configparser.ConfigParser()
-                    #ini_data.read(ini_file)
-                    #seq_lengths[seq] = int(ini_data['Sequence']['seqLength'])
+                    ini_file = os.path.join(self.gt_fol, seq, 'seqinfo.ini')
+                    if not os.path.isfile(ini_file):
+                        raise TrackEvalException('ini file does not exist: ' + seq + '/' + os.path.basename(ini_file))
+                    ini_data = configparser.ConfigParser()
+                    ini_data.read(ini_file)
+                    seq_lengths[seq] = int(ini_data['Sequence']['seqLength'])
         return seq_list, seq_lengths
 
     def _load_raw_file(self, tracker, seq, is_gt):
@@ -300,9 +246,6 @@ class MotChallenge2DBox(_BaseDataset):
                         raise TrackEvalException(err)
                 if time_data.shape[1] >= 8:
                     raw_data['classes'][t] = np.atleast_1d(time_data[:, 7]).astype(int)
-                    for i, data in enumerate(raw_data['classes'][t]):
-                        if int(raw_data['classes'][t][i]) > 0:
-                            raw_data['classes'][t][i] = int(1)
                 else:
                     if not is_gt:
                         raw_data['classes'][t] = np.ones_like(raw_data['ids'][t])
@@ -419,9 +362,6 @@ class MotChallenge2DBox(_BaseDataset):
                 # Check all classes are valid:
                 invalid_classes = np.setdiff1d(np.unique(gt_classes), self.valid_class_numbers)
                 if len(invalid_classes) > 0:
-                    print(gt_classes)
-                    print(invalid_classes)
-                    print(self.valid_class_numbers)
                     print(' '.join([str(x) for x in invalid_classes]))
                     raise(TrackEvalException('Attempting to evaluate using invalid gt classes. '
                                              'This warning only triggers if preprocessing is performed, '
@@ -437,9 +377,8 @@ class MotChallenge2DBox(_BaseDataset):
                 match_rows = match_rows[actually_matched_mask]
                 match_cols = match_cols[actually_matched_mask]
 
-                if isdistractor:
-                    is_distractor_class = np.isin(gt_classes[match_rows], distractor_classes)
-                    to_remove_tracker = match_cols[is_distractor_class]
+                is_distractor_class = np.isin(gt_classes[match_rows], distractor_classes)
+                to_remove_tracker = match_cols[is_distractor_class]
 
             # Apply preprocessing to remove all unwanted tracker dets.
             data['tracker_ids'][t] = np.delete(tracker_ids, to_remove_tracker, axis=0)
